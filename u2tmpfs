@@ -26,7 +26,7 @@ ${_SCR_NAME} parameters:
 
 Example:
 	1) Only init/update all users data without "mount -t tmpfs ...":
-	     ${_SCR_NAME} -u user1,user2 -d ${USER_DATA_DIR} -U -e "/home/user1/.cache"
+	     ${_SCR_NAME} -u user1,user2 -d ${USER_DATA_DIR} -U
 
 	2) Mount users home dir to tmpfs and extract all users data:
 	     ${_SCR_NAME} -u user1,user2 
