@@ -167,7 +167,7 @@ for user_name in `echo ${USERS} | tr "," "\n"`; do
 
 
 	mount_tmpfs ${USER_DIR} ${C_USER} ${C_GROUP} ${TMPFS_SIZE} && {
-		extract_user_data
+		extract_user_data || exit 1
 	} || {
 		echo "Error whith mounting..."
 		exit 1
