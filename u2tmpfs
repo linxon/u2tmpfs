@@ -62,12 +62,12 @@ check_args() {
 update_user_data() {
 	local ex_params="$@"
 	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p ${USER_DATA_DIR}
-	/bin/tar -cvJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" \
+	/bin/tar -cJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" \
 				   --anchored ${ex_params} "${USER_DIR}"
 }
 
 extract_user_data() {
-	/bin/tar -xvJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" -C "${USER_DIR}"
+	/bin/tar -xJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" -C "${USER_DIR}"
 }
 
 mount_tmpfs() {
