@@ -2,7 +2,7 @@
 
 BLACKLIST_USERS="root"
 USER_DATA_DIR="/var/lib/u2tmpfs"
-TMPFS_SIZE="1G"
+TMPFS_SIZE="512G"
 MOUNT_OPTS="mode=755,noatime"
 
 UPDATE_STAT=0
@@ -11,9 +11,9 @@ _SCR_NAME=`basename "$0"`
 
 print_help() {
 	cat << EOF
-Usage: ${_SCR_NAME} [-U] [-u USER1,USER2] 
+Usage: ${_SCR_NAME} [-U] [-u USER1,USER2]
                [-d USER_DATA_DIR]
-               [-s TMPFS_SIZE] 
+               [-s TMPFS_SIZE]
 
 Simple script for automount home dir to tmpfs when your system is booting and extract all user data there. 
 
@@ -62,12 +62,13 @@ check_args() {
 update_user_data() {
 	local ex_params="$@"
 	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p ${USER_DATA_DIR}
-	/bin/tar -cJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" \
-				   --anchored ${ex_params} "${USER_DIR}" > /dev/null
+	/bin/tar -cJp --absolute-names -f "${ARCH_FILE}" \
+				  --anchored ${ex_params} "${USER_DIR}" > /dev/null || return 1
 }
 
 extract_user_data() {
-	/bin/tar -xJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" -C "${USER_DIR}" > /dev/null
+	local ex_params="$@"
+	/bin/tar -xJp --absolute-names ${ex_params} -f "${ARCH_FILE}" -C "${USER_DIR}" > /dev/null || return 1
 }
 
 mount_tmpfs() {
@@ -133,6 +134,17 @@ check_args
 
 for user_name in `echo ${USERS} | tr "," "\n"`; do
 
+	ARCH_FILE="${USER_DATA_DIR}/${user_name}.tar.xz"
+	C_USER=$(cat /etc/passwd \
+				| grep -E "^${user_name}" \
+				| cut -d ":" -f 3)
+	C_GROUP=$(cat /etc/passwd \
+				| grep -E "^${user_name}" \
+				| cut -d ":" -f 4)
+	USER_DIR=$(cat /etc/passwd \
+				| grep -E "^${user_name}" \
+				| cut -d ":" -f 6)
+
 	for bl_users in `echo ${BLACKLIST_USERS} | tr "," "\n"`; do
 		if [[ "${user_name}" == "${bl_users}" ]] ; then
 			echo "This user is not allowed: ${user_name}"
@@ -145,16 +157,6 @@ for user_name in `echo ${USERS} | tr "," "\n"`; do
 		continue
 	fi
 
-	C_USER=$(cat /etc/passwd \
-				| grep -E "^${user_name}" \
-				| cut -d ":" -f 3)
-	C_GROUP=$(cat /etc/passwd \
-				| grep -E "^${user_name}" \
-				| cut -d ":" -f 4)
-	USER_DIR=$(cat /etc/passwd \
-				| grep -E "^${user_name}" \
-				| cut -d ":" -f 6)
-
 	if ! [ -d "${USER_DIR}" ]; then
 		echo "\"${USER_DIR}\" — for ${user_name} is not found!"
 		exit 1
@@ -165,6 +167,11 @@ for user_name in `echo ${USERS} | tr "," "\n"`; do
 		continue
 	fi
 
+	if ! [ -f "${ARCH_FILE}" ]; then
+		echo "You need update user data files (${_SCR_NAME} -U -u user1,user2)"
+		print_help
+		exit 1
+	fi
 
 	mount_tmpfs ${USER_DIR} ${C_USER} ${C_GROUP} ${TMPFS_SIZE} && {
 		extract_user_data || exit 1
