@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+BLACKLIST_USERS="root"
+USER_DATA_DIR="/var/lib/u2tmpfs"
+TMPFS_SIZE="1G"
+MOUNT_OPTS="mode=755,noatime"
+
+UPDATE_STAT=0
+
+_SCR_NAME=`basename "$0"`
+
+print_help() {
+	cat << EOF
+Usage: ${_SCR_NAME} [-U] [-u USER1,USER2] 
+               [-d USER_DATA_DIR]
+               [-s TMPFS_SIZE] 
+
+Simple script for automount home dir to tmpfs when your system is booting and extract all user data there. 
+
+${_SCR_NAME} parameters:
+  -u       Enter users (separated by commas. Example: user1,user2,etc)
+  -d       Directory for user data files (for *.tar.xz. Default: ${USER_DATA_DIR})
+  -U       Create/Update all *.tar.xz
+  -s       tmpfs size option (mount -o) (Example: 512M, 4G. Default: 1G)
+  -m       Use the specified mount options for tmpfs (Default: "${MOUNT_OPTS}")
+
+Example:
+	1) Only init/update all users data without "mount -t tmpfs ...":
+	     ${_SCR_NAME} -u user1,user2 -d ${USER_DATA_DIR} -U -e "/home/user1/.cache"
+
+	2) Mount users home dir to tmpfs and extract all users data:
+	     ${_SCR_NAME} -u user1,user2 
+	                                               
+EOF
+	exit
+}
+
+check_args() {
+	if ! [[ -z "${@}" ]]; then
+		print_help
+		exit
+	fi
+
+	if [ -z "${USERS}" ]; then
+		echo "You need enter a command: -u <USER_NAME>"
+		print_help
+		exit 1
+	fi
+
+	if [ -z "${USER_DATA_DIR}" ]; then
+		echo "You need enter a command: -d <USER_DATA_DIR>"
+		print_help
+		exit 1
+	else
+		[ -d "${USER_DATA_DIR}" ] || {
+			echo "Directory \"${USER_DATA_DIR}\" — is not found!"
+			exit 1
+		}
+	fi
+}
+
+update_user_data() {
+	local ex_params="$@"
+	/bin/tar -cvJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" \
+				   --anchored ${ex_params} "${USER_DIR}"
+}
+
+extract_user_data() {
+	/bin/tar -xvJp --absolute-names -f "${USER_DATA_DIR}/${user_name}.tar.xz" -C "${USER_DIR}"
+}
+
+mount_tmpfs() {
+	local udir="$1"
+	local uid=$2
+	local ugid=$3
+	local size="$4"
+
+	if mount | grep -E "^tmpfs" | grep ${udir} > /dev/null; then
+		return
+	else
+		/bin/mount -o size=${size},uid=${uid},gid=${ugid},${MOUNT_OPTS} \
+				   -t tmpfs tmpfs "${udir}" > /dev/null && {
+			return
+		} || {
+			echo "Error mount file to ${udir}"
+			return 1
+		}
+	fi
+}
+
+# parse args
+while [[ $# != 0 ]]; do
+	case "$1" in
+		-h )
+			print_help
+			;;
+
+		-u )
+			USERS="$2" ; shift
+			;;
+
+		-U )
+			UPDATE_STAT=1
+			;;
+
+		-d )
+			USER_DATA_DIR="$2" ; shift
+			;;
+
+		-s )
+			TMPFS_SIZE="$2" ; shift
+			;;
+
+		* )
+			echo "Unknown command: $1"
+			print_help
+			;;
+	esac
+	shift
+done
+
+check_args
+
+[ "$(/usr/bin/id -u)" != "0" ] && {
+	echo -e "You need a root priveleges\n"
+#	exit
+}
+
+for user_name in `echo ${USERS} | tr "," "\n"`; do
+
+	for bl_users in `echo ${BLACKLIST_USERS} | tr "," "\n"`; do
+		if [[ "${user_name}" == "${bl_users}" ]] ; then
+			echo "This user is not allowed: ${user_name}"
+			exit 1
+		fi
+	done
+
+	if ! [ "`cat /etc/passwd | grep -E "^${user_name}"`" ]; then
+		echo "User \"${user_name}\" is not found in your system!"
+		continue
+	fi
+
+	C_USER=$(cat /etc/passwd \
+				| grep -E "^${user_name}" \
+				| cut -d ":" -f 3)
+	C_GROUP=$(cat /etc/passwd \
+				| grep -E "^${user_name}" \
+				| cut -d ":" -f 4)
+	USER_DIR=$(cat /etc/passwd \
+				| grep -E "^${user_name}" \
+				| cut -d ":" -f 6)
+
+	if ! [ -d "${USER_DIR}" ]; then
+		echo "\"${USER_DIR}\" — for ${user_name} is not found!"
+		exit 1
+	fi
+
+	if [ ${UPDATE_STAT} -eq 1 ]; then
+		update_user_data
+		continue
+	fi
+
+
+	mount_tmpfs ${USER_DIR} ${C_USER} ${C_GROUP} ${TMPFS_SIZE} && {
+		extract_user_data
+	} || {
+		echo "Error whith mounting..."
+		exit 1
+	}
+
+done
+
