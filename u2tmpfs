@@ -219,10 +219,9 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 			echo "Error while updating the USER_DATA..."
 			exit 1
 		}
-	fi
 
 	# if ARCH_FILE is not found, you need update user data into...
-	if ! [ -f "${ARCH_FILE}" ]; then
+	elif ! [ -f "${ARCH_FILE}" ]; then
 		echo "You need update user data files (${_SCR_NAME} -U -u user1,user2)"
 		print_help
 		exit 1
