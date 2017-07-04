@@ -62,13 +62,29 @@ check_args() {
 update_user_data() {
 	local ex_params="$@"
 	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p ${USER_DATA_DIR}
-	/bin/tar -cJp --absolute-names -f "${ARCH_FILE}" \
-				  --anchored ${ex_params} "${USER_DIR}" > /dev/null || return 1
+
+	RAND_STRING=`cat /dev/urandom \
+					| tr -dc 'a-z0-9' \
+					| fold -w 6 \
+					| head -n 1`
+
+	WORK_FILE_PATH="/tmp/${user_name}-${RAND_STRING}.tar.xz"
+	/bin/tar -cJp --absolute-names \
+				  -f "${WORK_FILE_PATH}" \
+				  --anchored ${ex_params} "${USER_DIR}" > /dev/null && {
+
+		/bin/mv --force --update "${WORK_FILE_PATH}" "${ARCH_FILE}" || {
+			[ -f "${WORK_FILE_PATH}" ] && rm -f "${WORK_FILE_PATH}"
+			return 1
+		}
+	} || return 1
 }
 
 extract_user_data() {
 	local ex_params="$@"
-	/bin/tar -xJp --absolute-names ${ex_params} -f "${ARCH_FILE}" -C "${USER_DIR}" > /dev/null || return 1
+	/bin/tar -xJp --absolute-names ${ex_params} \
+				  -f "${ARCH_FILE}" \
+				  -C "${USER_DIR}" > /dev/null || return 1
 }
 
 mount_tmpfs() {
@@ -181,4 +197,3 @@ for user_name in `echo ${USERS} | tr "," "\n"`; do
 	}
 
 done
-
