@@ -9,6 +9,11 @@ UPDATE_STAT=0
 
 _SCR_NAME=`basename "$0"`
 
+if ! [ "` cat /proc/filesystems | grep -o -E "tmpfs$" | head -n1`" ]; then
+	echo "Error: kernel is not support a temporary filesystem (tmpfs)"
+	exit 1
+fi
+
 print_help() {
 	cat << EOF
 Usage: ${_SCR_NAME} [-U] [-u USER1,USER2]
