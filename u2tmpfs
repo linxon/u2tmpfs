@@ -2,7 +2,7 @@
 
 BLACKLIST_USERS="root"
 USER_DATA_DIR="/var/lib/u2tmpfs"
-TMPFS_SIZE="512G"
+TMPFS_SIZE="512M"
 MOUNT_OPTS="mode=755,noatime"
 
 UPDATE_STAT=0
@@ -12,6 +12,11 @@ _SCR_NAME=`basename "$0"`
 if ! [ "` cat /proc/filesystems | grep -o -E "tmpfs$" | head -n1`" ]; then
 	echo "Error: kernel is not support a temporary filesystem (tmpfs)"
 	exit 1
+else
+	[ "$(/usr/bin/id -u)" != "0" ] && {
+		echo -e "You need a root priveleges\n"
+	#	exit
+	}
 fi
 
 print_help() {
@@ -146,14 +151,7 @@ while [[ $# != 0 ]]; do
 	shift
 done
 
-check_args
-
-[ "$(/usr/bin/id -u)" != "0" ] && {
-	echo -e "You need a root priveleges\n"
-#	exit
-}
-
-for user_name in `echo ${USERS} | tr "," "\n"`; do
+check_args && for user_name in `echo ${USERS} | tr "," "\n"`; do
 
 	ARCH_FILE="${USER_DATA_DIR}/${user_name}.tar.xz"
 	C_USER=$(cat /etc/passwd \
