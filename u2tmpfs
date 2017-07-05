@@ -118,14 +118,27 @@ check_bl() {
 	done
 }
 
-get_meminfo() {
-	return
-}
-
 check_memory() {
-	if get_meminfo; then
-		return
-	else
+	local max_mem=`cat /proc/meminfo \
+		| grep -E "^MemTotal:" \
+		| grep -o -E "[0-9]{1,}"`
+
+	if echo "${TMPFS_SIZE}" | grep -o -E "[0-9]{1,}M$" > /dev/null; then
+		CUSTOM_SIZE="`echo "${TMPFS_SIZE}" \
+			| grep -o -E "[0-9]{1,}M$" \
+			| grep -o -E "^[0-9]{1,}"`000"
+
+	elif echo "${TMPFS_SIZE}" | grep -o -E "[0-9]{1,}G$" > /dev/null; then
+		CUSTOM_SIZE="`echo "${TMPFS_SIZE}" \
+			| grep -o -E "[0-9]{1,}G$" \
+			| grep -o -E "^[0-9]{1,}"`000000"
+
+	elif echo "${TMPFS_SIZE}" | grep -o -E "[0-9]{1,}" > /dev/null; then
+		CUSTOM_SIZE="`echo "${TMPFS_SIZE}" \
+			| grep -o -E "[0-9]{1,}"`"
+	fi
+
+	if ! (( $((${max_mem}/2)) >= ${CUSTOM_SIZE} )); then
 		return 1
 	fi
 }
@@ -136,32 +149,44 @@ update_user_data() {
 
 	# get random string (6)
 	RAND_STRING=`cat /dev/urandom \
-					| tr -dc 'a-z0-9' \
-					| fold -w 6 \
-					| head -n 1`
+		| tr -dc 'a-z0-9' \
+		| fold -w 6 \
+		| head -n 1`
 
 	# Temp file...
 	WORK_FILE_PATH="/tmp/${user_name}-${RAND_STRING}.tar.xz"
 
 	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p ${USER_DATA_DIR}
 	/bin/tar -cJp --absolute-names \
-				  -f "${WORK_FILE_PATH}" \
-				  --anchored ${ex_params} "${USER_DIR}" > /dev/null && {
+				-f "${WORK_FILE_PATH}" \
+				--anchored ${ex_params} "${USER_DIR}" > /dev/null && {
 
-		/bin/mv --force --update "${WORK_FILE_PATH}" "${ARCH_FILE}" || {
-			[ -f "${WORK_FILE_PATH}" ] && rm -f "${WORK_FILE_PATH}"
+		local arch_size=`/usr/bin/du -sP ${WORK_FILE_PATH} | grep -o -E "^[0-9]{1,}"`
+		check_memory # get CUSTOM_SIZE
+		if (( ${arch_size} <= ${CUSTOM_SIZE} )); then
+			/bin/mv --force --update "${WORK_FILE_PATH}" "${ARCH_FILE}" || {
+				[ -f "${WORK_FILE_PATH}" ] && rm -f "${WORK_FILE_PATH}"
+				return 1
+			}
+		else
 			return 1
-		}
+		fi
 	} || return 1
 }
 
 extract_user_data() {
 	# custom args for /bin/tar
 	local ex_params="$@"
+	local arch_size=`/usr/bin/du -sP ${ARCH_FILE} | grep -o -E "^[0-9]{1,}"`
 
-	/bin/tar -xJp --absolute-names ${ex_params} \
-				  -f "${ARCH_FILE}" \
-				  -C "${USER_DIR}" > /dev/null || return 1
+	check_memory # get CUSTOM_SIZE
+	if (( ${arch_size} <= ${CUSTOM_SIZE} )); then
+		/bin/tar -xJp --absolute-names ${ex_params} \
+					-f "${ARCH_FILE}" \
+					-C "${USER_DIR}" > /dev/null || return 1
+	else
+		return 1
+	fi
 }
 
 mount_tmpfs() {
@@ -175,7 +200,7 @@ mount_tmpfs() {
 		return
 	else
 		/bin/mount -o size=${size},uid=${uid},gid=${ugid},${MOUNT_OPTS} \
-				   -t tmpfs tmpfs "${udir}" > /dev/null || {
+				-t tmpfs tmpfs "${udir}" > /dev/null || {
 			return 1
 		}
 	fi
@@ -191,14 +216,14 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 	fi
 
 	C_USER=$(cat /etc/passwd \
-				| grep -E "^${user_name}" \
-				| cut -d ":" -f 3)
+		| grep -E "^${user_name}" \
+		| cut -d ":" -f 3)
 	C_GROUP=$(cat /etc/passwd \
-				| grep -E "^${user_name}" \
-				| cut -d ":" -f 4)
+		| grep -E "^${user_name}" \
+		| cut -d ":" -f 4)
 	USER_DIR=$(cat /etc/passwd \
-				| grep -E "^${user_name}" \
-				| cut -d ":" -f 6)
+		| grep -E "^${user_name}" \
+		| cut -d ":" -f 6)
 	ARCH_FILE="${USER_DATA_DIR}/${user_name}.tar.xz"
 
 	if ! [ -d "${USER_DIR}" ]; then
@@ -228,14 +253,19 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 	fi
 
 	# Mount TMPFS to HOME dir (for this "user_name") and extract user data from ARCH_FILE
-	mount_tmpfs ${USER_DIR} ${C_USER} ${C_GROUP} ${TMPFS_SIZE} && {
-		extract_user_data || {
-			echo "Error while unpacking the USER_DATA..."
+	if check_memory; then
+		mount_tmpfs ${USER_DIR} ${C_USER} ${C_GROUP} ${TMPFS_SIZE} && {
+			extract_user_data || {
+				echo "Error while unpacking the USER_DATA..."
+				exit 1
+			}
+		} || {
+			echo "Error during mounting HOME dir (${USER_DIR}) to TMPFS"
 			exit 1
-		} 
-	} || {
-		echo "Error during mounting HOME dir (${USER_DIR}) to TMPFS"
+		}
+	else
+		echo "${TMPFS_SIZE} — memory limit exceeded. Please, change TMPFS_SIZE param. (MAX_MEM / 2)"
 		exit 1
-	}
+	fi
 
 done
