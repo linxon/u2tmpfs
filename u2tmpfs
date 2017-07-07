@@ -248,7 +248,7 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 	else
 		if is_login "${user_name}"; then
 			echo "Please, send logout command for: \"${user_name}\""
-#			continue
+			continue
 		fi
 	fi
 
