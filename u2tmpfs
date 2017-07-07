@@ -23,17 +23,18 @@ if ! [ "`cat /proc/filesystems | grep -o -E "tmpfs$" | head -n1`" ]; then
 	exit 1
 else
 	[ "$(/usr/bin/id -u)" != "0" ] && {
-		echo -e "You need a root priveleges\n"
-#		exit 1
+		echo "You need a root priveleges"
+		exit 1
 	}
 fi
 
 UPDATE_STAT=0
+WIPE_STAT=${UPDATE_STAT}
 _SCR_NAME=`basename "$0"`
 
 print_help() {
 	cat << EOF
-Usage: ${_SCR_NAME} [-U] [-u USER1,USER2]
+Usage: ${_SCR_NAME} [-Uw] [-u USER1,USER2]
                [-d USER_DATA_DIR]
                [-s TMPFS_SIZE]
                [-o MOUNT_OPTS]
@@ -46,6 +47,7 @@ ${_SCR_NAME} parameters:
   -U       Create/Update all *.tar.xz
   -s       tmpfs size option (mount -o size) (Example: 512M, 4G. Default: 512M)
   -o       Use the specified mount options for tmpfs (Default: "${MOUNT_OPTS}")
+  -w       Wipe user data on USER_DATA_DIR for current USER (-u user1)
 
 Example:
 	1) Only init/update all users data without "mount -t tmpfs ...":
@@ -75,6 +77,8 @@ while [[ $# != 0 ]]; do
 			echo "comming soon..."
 			print_help
 			;;
+
+		-w ) WIPE_STAT=1 ;;
 
 		* )
 			echo "Unknown command: $1"
@@ -118,6 +122,22 @@ check_bl() {
 	done
 }
 
+wipe_workfile() {
+	local tmp_f="$1"
+
+	if [ -f "${tmp_f}" ]; then
+		/bin/rm -f "${tmp_f}" || return 1
+	fi
+}
+
+is_login() {
+	local curr_user="$1"
+
+	if ! /usr/bin/w -sh "${curr_user}" > /dev/null; then
+		return 1
+	fi
+}
+
 check_memory() {
 	local max_mem=`cat /proc/meminfo \
 		| grep -E "^MemTotal:" \
@@ -156,26 +176,28 @@ update_user_data() {
 	# Temp file...
 	WORK_FILE_PATH="/tmp/${user_name}-${RAND_STRING}.tar.xz"
 
-	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p ${USER_DATA_DIR}
+	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p "${USER_DATA_DIR}"
 	/bin/tar -cJp --absolute-names \
-				-f "${WORK_FILE_PATH}" \
-				--anchored ${ex_params} "${USER_DIR}" > /dev/null && {
+			-f "${WORK_FILE_PATH}" \
+			--anchored ${ex_params} "${USER_DIR}" \
+			--xattrs > /dev/null && {
 
-		local arch_size=`/usr/bin/du -sP ${WORK_FILE_PATH} | grep -o -E "^[0-9]{1,}"`
-		local md5_s=`/usr/bin/md5sum ${WORK_FILE_PATH} | head -c 32`
-		local md5_d=`/usr/bin/md5sum ${ARCH_FILE} | head -c 32`
+		local arch_size=`/usr/bin/du -sP "${WORK_FILE_PATH}" | grep -o -E "^[0-9]{1,}"`
 
-		if [[ "${md5_s}" == "${md5_d}" ]]; then
-			# is updated
-			return
+		if [ -f ${ARCH_FILE} ]; then
+			local md5_s=`/usr/bin/md5sum "${WORK_FILE_PATH}" | head -c 32`
+			local md5_d=`/usr/bin/md5sum "${ARCH_FILE}" | head -c 32`
+
+			[[ "${md5_s}" == "${md5_d}" ]] && {
+				wipe_workfile "${WORK_FILE_PATH}" || return 1
+				# is updated
+				return
+			}
 		fi
 
 		check_memory # get CUSTOM_SIZE
 		if (( ${arch_size} <= ${CUSTOM_SIZE} )); then
-			/bin/mv --force "${WORK_FILE_PATH}" "${ARCH_FILE}" || {
-				[ -f "${WORK_FILE_PATH}" ] && rm -f "${WORK_FILE_PATH}"
-				return 1
-			}
+			/bin/mv --force "${WORK_FILE_PATH}" "${ARCH_FILE}" || return 1
 		else
 			return 1
 		fi
@@ -189,9 +211,11 @@ extract_user_data() {
 
 	check_memory # get CUSTOM_SIZE
 	if (( ${arch_size} <= ${CUSTOM_SIZE} )); then
-		/bin/tar -xJp --absolute-names ${ex_params} \
-					-f "${ARCH_FILE}" \
-					-C "${USER_DIR}" > /dev/null || return 1
+		/bin/tar -xJp --skip-old-files \
+				--absolute-names ${ex_params} \
+				-f "${ARCH_FILE}" \
+				-C "${USER_DIR}" \
+				--xattrs > /dev/null || return 1
 	else
 		return 1
 	fi
@@ -221,6 +245,11 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 	if ! [ "`cat /etc/passwd | grep -E "^${user_name}"`" ]; then
 		echo "User \"${user_name}\" is not found in your system!"
 		continue
+	else
+		if is_login "${user_name}"; then
+			echo "Please, send logout command for: \"${user_name}\""
+#			continue
+		fi
 	fi
 
 	C_USER=$(cat /etc/passwd \
@@ -249,6 +278,7 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 			# after update skip mount and extract user data...
 			continue
 		} || {
+			wipe_workfile "${WORK_FILE_PATH}"
 			echo "Error while updating the USER_DATA..."
 			exit 1
 		}
@@ -258,11 +288,15 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 		echo "You need update user data files (${_SCR_NAME} -U -u user1,user2)"
 		print_help
 		exit 1
+
+	elif [ ${WIPE_STAT} -eq 1 ]; then
+		wipe_workfile "${ARCH_FILE}"
+		continue
 	fi
 
 	# Mount TMPFS to HOME dir (for this "user_name") and extract user data from ARCH_FILE
 	if check_memory; then
-		mount_tmpfs ${USER_DIR} ${C_USER} ${C_GROUP} ${TMPFS_SIZE} && {
+		mount_tmpfs "${USER_DIR}" "${C_USER}" "${C_GROUP}" "${TMPFS_SIZE}" && {
 			extract_user_data || {
 				echo "Error while unpacking the USER_DATA..."
 				exit 1
