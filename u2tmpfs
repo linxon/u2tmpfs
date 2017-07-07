@@ -133,7 +133,7 @@ wipe_workfile() {
 is_login() {
 	local curr_user="$1"
 
-	if ! /usr/bin/w -sh "${curr_user}" > /dev/null; then
+	if ! /usr/bin/w -sh | grep -oE "^${curr_user}" > /dev/null; then
 		return 1
 	fi
 }
