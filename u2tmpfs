@@ -162,9 +162,17 @@ update_user_data() {
 				--anchored ${ex_params} "${USER_DIR}" > /dev/null && {
 
 		local arch_size=`/usr/bin/du -sP ${WORK_FILE_PATH} | grep -o -E "^[0-9]{1,}"`
+		local md5_s=`/usr/bin/md5sum ${WORK_FILE_PATH} | head -c 32`
+		local md5_d=`/usr/bin/md5sum ${ARCH_FILE} | head -c 32`
+
+		if [[ "${md5_s}" == "${md5_d}" ]]; then
+			# is updated
+			return
+		fi
+
 		check_memory # get CUSTOM_SIZE
 		if (( ${arch_size} <= ${CUSTOM_SIZE} )); then
-			/bin/mv --force --update "${WORK_FILE_PATH}" "${ARCH_FILE}" || {
+			/bin/mv --force "${WORK_FILE_PATH}" "${ARCH_FILE}" || {
 				[ -f "${WORK_FILE_PATH}" ] && rm -f "${WORK_FILE_PATH}"
 				return 1
 			}
