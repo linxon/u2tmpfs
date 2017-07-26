@@ -265,7 +265,7 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 
 	if ! [ -d "${USER_DIR}" ]; then
 		echo "\"${USER_DIR}\" — for ${user_name} is not found!"
-		exit 1
+		continue
 
 	elif ! check_bl "${user_name}"; then
 		echo "\"${user_name}\" — is not allowed!"
