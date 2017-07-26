@@ -143,19 +143,19 @@ check_memory() {
 		| grep -E "^MemTotal:" \
 		| grep -o -E "[0-9]{1,}")
 
-	if echo "${TMPFS_SIZE}" | grep -o -E "[0-9]{1,}M$" > /dev/null; then
+	if echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}M$" > /dev/null; then
 		CUSTOM_SIZE=$(($(echo "${TMPFS_SIZE}" \
-			| grep -o -E "[0-9]{1,}M$" \
-			| grep -o -E "^[0-9]{1,}") * 1000))
+			| grep -o -E "^[0-9]{1,}M$" \
+			| grep -o -E "[0-9]{1,}") * 1000))
 
-	elif echo "${TMPFS_SIZE}" | grep -o -E "[0-9]{1,}G$" > /dev/null; then
+	elif echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}G$" > /dev/null; then
 		CUSTOM_SIZE=$(($(echo "${TMPFS_SIZE}" \
-			| grep -o -E "[0-9]{1,}G$" \
-			| grep -o -E "^[0-9]{1,}") * 1000000))
+			| grep -o -E "^[0-9]{1,}G$" \
+			| grep -o -E "[0-9]{1,}") * 1000000))
 
-	elif echo "${TMPFS_SIZE}" | grep -o -E "[0-9]{1,}" > /dev/null; then
+	elif echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}" > /dev/null; then
 		CUSTOM_SIZE=$(echo "${TMPFS_SIZE}" \
-			| grep -o -E "[0-9]{1,}")
+			| grep -o -E "^[0-9]{1,}")
 	fi
 
 	if ! (( $((${max_mem}/2)) >= ${CUSTOM_SIZE} )); then
