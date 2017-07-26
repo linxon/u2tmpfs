@@ -130,6 +130,16 @@ wipe_workfile() {
 	fi
 }
 
+make_backup() {
+	local ar_file="$1"
+	/bin/mv --force "${ar_file}" "${ar_file}~"
+}
+
+restore_backup() {
+	local ar_file="$1"
+	/bin/mv --force "${ar_file}~" "${ar_file}"
+}
+
 is_login() {
 	local curr_user="$1"
 
@@ -274,11 +284,13 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 		continue
 
 	elif [ ${UPDATE_STAT} -eq 1 ]; then
+		make_backup "${ARCH_FILE}"
 		update_user_data && {
 			# after update skip mount and extract user data...
 			continue
 		} || {
 			wipe_workfile "${WORK_FILE_PATH}"
+			restore_backup "${ARCH_FILE}"
 			echo "Error while updating the USER_DATA..."
 			exit 1
 		}
