@@ -132,12 +132,12 @@ wipe_workfile() {
 
 make_backup() {
 	local ar_file="$1"
-	/bin/mv --force "${ar_file}" "${ar_file}~"
+	[ -f ${ar_file} ] && /bin/mv --force "${ar_file}" "${ar_file}~"
 }
 
 restore_backup() {
 	local ar_file="$1"
-	/bin/mv --force "${ar_file}~" "${ar_file}"
+	[ -f ${ar_file} ] && /bin/mv --force "${ar_file}~" "${ar_file}"
 }
 
 is_login() {
