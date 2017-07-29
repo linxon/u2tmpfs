@@ -30,7 +30,7 @@ fi
 
 UPDATE_STAT=0
 WIPE_STAT=${UPDATE_STAT}
-_SCR_NAME=`basename "$0"`
+_SCR_NAME=`basename "${0}"`
 
 print_help() {
 	cat << EOF
@@ -62,26 +62,23 @@ EOF
 
 ## Parse args
 while [[ $# != 0 ]]; do
-	case "$1" in
+	case "${1}" in
 		-h ) print_help ;;
 
-		-u ) USERS="$2" ; shift ;;
+		-u ) USERS="${2}" ; shift ;;
 
 		-U ) UPDATE_STAT=1 ;;
 
-		-d ) USER_DATA_DIR="$2" ; shift ;;
+		-d ) USER_DATA_DIR="${2}" ; shift ;;
 
-		-s ) TMPFS_SIZE="$2" ; shift ;;
+		-s ) TMPFS_SIZE="${2}" ; shift ;;
 
-		-o )
-			echo "comming soon..."
-			print_help
-			;;
+		-o ) MOUNT_OPTS="${2}" ; shift ;;
 
 		-w ) WIPE_STAT=1 ;;
 
 		* )
-			echo "Unknown command: $1"
+			echo "Unknown command: ${1}"
 			print_help
 			;;
 	esac
@@ -113,7 +110,7 @@ check_args() {
 }
 
 check_bl() {
-	local curr_user="$1"
+	local curr_user="${1}"
 
 	for bl_user in `echo "${BLACKLIST_USERS}" | tr "," "\n"`; do
 		if [[ "${curr_user}" == "${bl_user}" ]] ; then
@@ -123,22 +120,22 @@ check_bl() {
 }
 
 wipe_workfile() {
-	local tmp_f="$1"
+	local tmp_f="${1}"
 	[ -f "${tmp_f}" ] && /bin/rm -f "${tmp_f}" || return 1
 }
 
 make_backup() {
-	local ar_file="$1"
+	local ar_file="${1}"
 	[ -f ${ar_file} ] && /bin/mv --force "${ar_file}" "${ar_file}~"
 }
 
 restore_backup() {
-	local ar_file="$1"
+	local ar_file="${1}"
 	[ -f ${ar_file} ] && /bin/mv --force "${ar_file}~" "${ar_file}"
 }
 
 is_login() {
-	local curr_user="$1"
+	local curr_user="${1}"
 
 	if ! /usr/bin/w -sh | grep -oE "^${curr_user}" > /dev/null; then
 		return 1
@@ -170,7 +167,7 @@ check_memory() {
 
 update_user_data() {
 	# custom args for /bin/tar
-	local ex_params="$@"
+	local ex_params="${@}"
 
 	# get random string (6)
 	RAND_STRING=`cat /dev/urandom \
@@ -211,7 +208,7 @@ update_user_data() {
 
 extract_user_data() {
 	# custom args for /bin/tar
-	local ex_params="$@"
+	local ex_params="${@}"
 	local arch_size=`/usr/bin/du -sP ${ARCH_FILE} | grep -o -E "^[0-9]{1,}"`
 
 	check_memory # get CUSTOM_SIZE
@@ -227,12 +224,12 @@ extract_user_data() {
 }
 
 mount_tmpfs() {
-	local udir="$1"
-	local uid=$2
-	local ugid=$3
-	local size="$4"
+	local udir="${1}"
+	local uid=${2}
+	local ugid=${3}
+	local size="${4}"
 
-	if mount | grep -E "^tmpfs" | grep ${udir} > /dev/null; then
+	if /bin/mount | grep -E "^tmpfs" | grep ${udir} > /dev/null; then
 		# skip mounting
 		return
 	else
