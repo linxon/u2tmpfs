@@ -124,10 +124,7 @@ check_bl() {
 
 wipe_workfile() {
 	local tmp_f="$1"
-
-	if [ -f "${tmp_f}" ]; then
-		/bin/rm -f "${tmp_f}" || return 1
-	fi
+	[ -f "${tmp_f}" ] && /bin/rm -f "${tmp_f}" || return 1
 }
 
 make_backup() {
