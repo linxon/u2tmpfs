@@ -182,8 +182,6 @@ check_arch_size() {
 			| sed '2,$s/^/+ /' \
 			| paste -sd ' ' \
 			| awk '{ byte = $1 /1024 ; print byte ;byte = $1 /1024/1024 }')
-
-		ARCH_SIZE="${ARCH_SIZE}"
 	else
 		return 1
 	fi
