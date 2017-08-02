@@ -45,7 +45,7 @@ ${_SCR_NAME} parameters:
   -u       Enter users (separated by commas. Example: user1,user2,etc)
   -d       Directory for user data files (for *.tar.xz. Default: ${USER_DATA_DIR})
   -U       Create/Update all *.tar.xz
-  -s       tmpfs size option (mount -o size) (Example: 512M, 4G. Default: 512M)
+  -s       tmpfs size option (Example: 512M, 4G. Default: 512M; Warning: you can use only half of installed RAM!)
   -o       Use the specified mount options for tmpfs (Default: "${MOUNT_OPTS}")
   -w       Wipe user data on USER_DATA_DIR for current USER (-u user1)
 
@@ -158,6 +158,8 @@ check_memory() {
 	elif echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}$" > /dev/null; then
 		CUSTOM_SIZE=$(echo "${TMPFS_SIZE}" \
 			| grep -o -E "^[0-9]{1,}$")
+	else
+		CUSTOM_SIZE=$((${max_mem}/2))
 	fi
 
 	# you can use only half of installed RAM
@@ -273,8 +275,6 @@ check_args && for user_name in `echo "${USERS}" | tr "," "\n"`; do
 
 	elif ! check_bl "${user_name}"; then
 		echo "\"${user_name}\" — is not allowed!"
-
-		# skip this user
 		continue
 
 	elif [ ${UPDATE_STAT} -eq 1 ]; then
