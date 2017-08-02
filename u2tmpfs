@@ -173,6 +173,11 @@ check_memory() {
 	fi
 }
 
+get_mem_size() {
+	# return CUSTOM_SIZE var
+	check_memory || return 1
+}
+
 check_arch_size() {
 	# get real size of user data (bytes)
 	if [ -f "${ARCH_FILE}" ]; then
@@ -181,13 +186,13 @@ check_arch_size() {
 			| cut -f3 -d ' ' \
 			| sed '2,$s/^/+ /' \
 			| paste -sd ' ' \
-			| awk '{ byte = $1 /1024 ; print byte ;byte = $1 /1024/1024 }')
+			| awk '{ byte = $1 /1024 ; print byte ;byte = $1 /1024/1024 }' > /dev/null 2>&1)
 	else
 		return 1
 	fi
 
 	# get CUSTOM_SIZE var
-	check_memory || return 1
+	get_mem_size || return 1
 
 	if ! (( ${ARCH_SIZE} <= ${CUSTOM_SIZE} )); then
 		return 1
@@ -206,6 +211,7 @@ update_user_data() {
 
 	# Temp file...
 	WORK_FILE_PATH="/tmp/${user_name}-${RAND_STRING}.tar.xz"
+	USER_DIR_SIZE=$(/usr/bin/du -sP "${USER_DIR}" | grep -o -E "^[0-9]{1,}")
 
 	[ -d "${USER_DATA_DIR}" ] || /bin/mkdir --mode=0740 -p "${USER_DATA_DIR}"
 	/bin/tar -cJp --absolute-names \
@@ -224,9 +230,13 @@ update_user_data() {
 			}
 		fi
 
-		if check_arch_size; then
+		get_mem_size # get CUSTOM_SIZE var
+		if (( ${USER_DIR_SIZE} <= ${CUSTOM_SIZE} )); then
 			make_backup "${ARCH_FILE}"
 			/bin/mv --force "${WORK_FILE_PATH}" "${ARCH_FILE}" || return 1
+
+			# write original size of user data to *.count file
+			echo "${USER_DIR_SIZE}" > "${ARCH_FILE}.count"
 		else
 			return 1
 		fi
@@ -238,7 +248,11 @@ extract_user_data() {
 	# custom args for /bin/tar
 	local ex_params="${@}"
 
-	if check_arch_size; then
+	# get original size of user data from *.count file
+	USER_DIR_SIZE=$(cat "${ARCH_FILE}.count")
+
+	get_mem_size # get CUSTOM_SIZE var
+	if (( ${USER_DIR_SIZE} <= ${CUSTOM_SIZE} )); then
 		/bin/tar -xJp --skip-old-files \
 				--absolute-names ${ex_params} \
 				-f "${ARCH_FILE}" \
