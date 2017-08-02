@@ -209,7 +209,7 @@ update_user_data() {
 		| fold -w 6 \
 		| head -n 1`
 
-	# Temp file...
+	# temp file...
 	WORK_FILE_PATH="/tmp/${user_name}-${RAND_STRING}.tar.xz"
 	USER_DIR_SIZE=$(/usr/bin/du -sP "${USER_DIR}" | grep -o -E "^[0-9]{1,}")
 
