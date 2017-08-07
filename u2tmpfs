@@ -153,12 +153,12 @@ check_memory() {
 
 	# convert to kB
 	if echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}M$" > /dev/null; then
-		custom_size=$(($(echo "${TMPFS_SIZE}" \
-			| grep -o -E "^[0-9]{1,}") * 1024))
+		custom_size=$(( $(echo "${TMPFS_SIZE}" \
+			| grep -o -E "^[0-9]{1,}") * 1024 ))
 
 	elif echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}G$" > /dev/null; then
-		custom_size=$(($(echo "${TMPFS_SIZE}" \
-			| grep -o -E "^[0-9]{1,}") * 1048576))
+		custom_size=$(( $(echo "${TMPFS_SIZE}" \
+			| grep -o -E "^[0-9]{1,}") * 1048576 ))
 
 	elif echo "${TMPFS_SIZE}" | grep -o -E "^[0-9]{1,}$" > /dev/null; then
 		custom_size=$(echo "${TMPFS_SIZE}" \
