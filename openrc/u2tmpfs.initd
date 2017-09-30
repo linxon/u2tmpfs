@@ -1,0 +1,55 @@
+#!/sbin/openrc-run
+# Copyright 1999-2017 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+
+DAEMON="/usr/sbin/${RC_SVCNAME}"
+DAEMON_ARGS=()
+
+extra_commands="checkconfig"
+extra_commands="update"
+
+depend() {
+	need localmount procfs
+}
+
+checkconfig() {
+	if [ ! -d ${PID_DIR} ]; then
+		checkpath -q -d -o ${USER}:${GROUP} -m 0755 ${PID_DIR} || return 1
+	fi
+
+	[ -z "${USERS}" ] && {
+		eerror "Please, see configuration file: /etc/conf.d/${RC_SVCNAME}"
+		return 1
+	} || DAEMON_ARGS+=("-u ${USERS}")
+	
+	[ -z "${USER_DATA_DIR}" ] || DAEMON_ARGS+=("-d ${USER_DATA_DIR}")
+	[ -z "${TMPFS_SIZE}" ] || DAEMON_ARGS+=("-s ${TMPFS_SIZE}")
+}
+
+update() {
+	checkconfig || return 1
+	ebegin "Updating user files. Please wait"
+	DAEMON_ARGS+=("-U")
+	${DAEMON} ${DAEMON_ARGS[@]}
+	eend ${?}
+}
+
+start() {
+	checkconfig || return 1
+	if ! [ -n "`find "${USER_DATA_DIR}" -type f -iname "*.tar.xz"`" ]; then
+		eerror "You need update user data"
+		eerror "Please, run command: rc-service ${RC_SVCNAME} update"
+		return 1
+	fi
+	ebegin "Starting ${RC_SVCNAME}"
+	${DAEMON} ${DAEMON_ARGS[@]}
+	eend ${?}
+}
+
+stop() {
+	ebegin "Stopping ${RC_SVCNAME}"
+	update
+	eend ${?}
+}
+
+# vim: set ft=gentoo-init-d ts=4 :
