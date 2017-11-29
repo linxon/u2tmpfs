@@ -42,7 +42,7 @@ Usage: ${_SCR_NAME} [-Uw] [-u USER1,USER2]
                [-s TMPFS_SIZE]
                [-o MOUNT_OPTS]
 
-Simple script for automount home dir to tmpfs when your system is booting and extract all user data there. 
+A simple daemon for mount home dir to tmpfs and extract all user data there when your system is booting. 
 
 ${_SCR_NAME} parameters:
   -u       Enter users (separated by commas. Example: user1,user2,etc)
