@@ -1,7 +1,6 @@
 This script i'm using on my flash drive with gentoo
-===
 ---
-# Useage
+# Usage
 * **-u**  —  Enter users (separated by commas. Example: user1,user2,etc)
 * **-d**  —  Directory for user data files (for *.tar.xz. Default: ${USER_DATA_DIR})
 * **-U**  —  Create/Update all *.tar.xz
