@@ -1,2 +1,2 @@
 # u2tmpfs
-Simple daemon for extract user files to home directory when a system boot
+A simple daemon for mount tmpfs and extract user files to home directory when your system boot 
