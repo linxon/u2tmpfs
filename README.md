@@ -1,5 +1,5 @@
 This script i'm using on my flash drive with gentoo
----
+===
 # Usage
 * **-u**  —  Enter users (separated by commas. Example: user1,user2,etc)
 * **-d**  —  Directory for user data files (for *.tar.xz. Default: ${USER_DATA_DIR})
