@@ -112,6 +112,10 @@ check_args() {
 	fi
 }
 
+# Checking blacklist
+#
+# ${1} — Username for check
+# ${BLACKLIST_USERS} — (global) Users in blacklist
 check_bl() {
 	local curr_user="${1}"
 
@@ -145,6 +149,9 @@ is_login() {
 	fi
 }
 
+# Used for check free RAM using for tmpfs
+#
+# ${TMPFS_SIZE} — (global) Custom tmpfs size
 check_memory() {
 	local custom_size=0
 	local max_mem=$(cat /proc/meminfo \
@@ -176,11 +183,14 @@ check_memory() {
 	fi
 }
 
+# Using for return a MEM_SIZE
 get_mem_size() {
-	# return MEM_SIZE var
 	check_memory || return 1
 }
 
+# Checking archive size
+#
+# ${ARCH_FILE} — (global) Size of archive
 check_arch_size() {
 	# get real size of user data
 	if [ -f "${ARCH_FILE}" ]; then
@@ -200,11 +210,12 @@ check_arch_size() {
 	fi
 }
 
+# Update user files (/home/somename) in ${USER_DATA_DIR}
+#
+# ${@} — adv. params for /bin/tar
 update_user_data() {
-	# custom args for /bin/tar
 	local ex_params="${@}"
 
-	# get random string (6)
 	RAND_STRING=`cat /dev/urandom \
 		| tr -dc 'a-z0-9' \
 		| fold -w 6 \
@@ -245,11 +256,11 @@ update_user_data() {
 	} || return 1
 }
 
+# Write dir size to *.count file and extract user data from ${USER_DATA_DIR}
+#
+# ${@} — adv. params for /bin/tar
 extract_user_data() {
-	# custom args for /bin/tar
 	local ex_params="${@}"
-
-	# get original size of user data from *.count file
 	USER_DIR_SIZE=$(cat "${ARCH_FILE}.count")
 
 	get_mem_size # get MEM_SIZE var
@@ -264,6 +275,13 @@ extract_user_data() {
 	fi
 }
 
+# Mount tmpfs to ${udir}
+#
+# ${1} — User directory (/home/somename)
+# ${2} — Used ID
+# ${3} — Group ID
+# ${4} — Custom tmpfs size
+# ${MOUNT_OPTS} — (global) Custom mount options for tmpfs
 mount_tmpfs() {
 	local udir="${1}"
 	local uid=${2}
